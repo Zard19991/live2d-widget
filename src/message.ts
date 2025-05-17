@@ -3,7 +3,20 @@
  * @module message
  */
 
-import randomSelection from './utils.js';
+import { randomSelection } from './utils.js';
+
+type Time = {
+  /**
+   * 时间段，格式为 "HH-HH"，例如 "00-06" 表示 0 点到 6 点。
+   * @type {string}
+   */
+  hour: string;
+  /**
+   * 在该时间段显示的消息。
+   * @type {string}
+   */
+  text: string;
+}[];
 
 let messageTimer: NodeJS.Timeout | null = null;
 
@@ -39,4 +52,43 @@ function showMessage(
   }, timeout);
 }
 
-export default showMessage;
+/**
+ * 根据时间显示欢迎消息。
+ * @param {Time} time - 时间消息配置。
+ * @returns {string} 欢迎消息。
+ */
+function welcomeMessage(time: Time): string {
+  if (location.pathname === '/') {
+    // 如果是主页
+    for (const { hour, text } of time) {
+      const now = new Date(),
+        after = hour.split('-')[0],
+        before = hour.split('-')[1] || after;
+      if (
+        Number(after) <= now.getHours() &&
+        now.getHours() <= Number(before)
+      ) {
+        return text;
+      }
+    }
+  }
+  const text = `欢迎阅读<span>「${document.title.split(' - ')[0]}」</span>`;
+  let from;
+  if (document.referrer !== '') {
+    const referrer = new URL(document.referrer),
+      domain = referrer.hostname.split('.')[1];
+    const domains = {
+      baidu: '百度',
+      so: '360搜索',
+      google: '谷歌搜索',
+    } as const;
+    if (location.hostname === referrer.hostname) return text;
+
+    if (domain in domains) from = domains[domain as keyof typeof domains];
+    else from = referrer.hostname;
+    return `Hello！来自 <span>${from}</span> 的朋友<br>${text}`;
+  }
+  return text;
+}
+
+export { showMessage, welcomeMessage, Time };

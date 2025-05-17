@@ -28,7 +28,7 @@ You can also check out example web pages:
 If you are a beginner or only need the basic functionality, you can simply add the following line of code to the `head` or `body` of your HTML page to load the widget:
 
 ```html
-<script src="https://fastly.jsdelivr.net/npm/live2d-widgets@0/autoload.js"></script>
+<script src="https://fastly.jsdelivr.net/npm/live2d-widgets@1.0.0-rc.1/dist/autoload.js"></script>
 ```
 
 The placement of the code depends on how your website is built. For example, if you are using [Hexo](https://hexo.io), you need to add the above code to the template file of your theme. The modification process is similar for pages generated using various template engines.  
@@ -43,10 +43,13 @@ You can refer to the source code of `dist/autoload.js` to see the available conf
 
 | Option | Type | Default Value | Description |
 | ------ | ---- | ------------- | ----------- |
-| `waifuPath` | `string` | `https://fastly.jsdelivr.net/npm/live2d-widgets@0/waifu-tips.json` | Path to the widget resources, can be modified |
-| `apiPath` | `string` | `https://live2d.fghrsh.net/api/` | API path, optional |
-| `cdnPath` | `string` | `https://fastly.jsdelivr.net/gh/fghrsh/live2d_api/` | CDN path, optional |
-| `tools` | `string[]` | see `autoload.js` | Buttons of the loaded tools, optional |
+| `waifuPath` | `string` | `https://fastly.jsdelivr.net/npm/live2d-widgets@1/waifu-tips.json` | Path to the widget resources, can be modified |
+| `apiPath` | `string` | `https://live2d.fghrsh.net/api/` | API path |
+| `cdnPath` | `string` | `https://fastly.jsdelivr.net/gh/fghrsh/live2d_api/` | CDN path |
+| `modelId` | `number` | `0` | Default model id |
+| `tools` | `string[]` | see `autoload.js` | Buttons of the loaded tools |
+| `drag` | `boolean` | `false` | Make the widget draggable |
+| `logLevel` | `string` | `error` | Log level: `error`, `warn`, `info`, `trace` |
 
 Among them, the parameters `apiPath` and `cdnPath` only need to set one of them. `apiPath` is the URL of the backend API, which can be set up and modified by yourself (there are many things to modify, not discussed here). You can refer to [live2d_api](https://github.com/fghrsh/live2d_api) for more information. On the other hand, `cdnPath` is used to load resources through CDN services like jsDelivr, which provides better stability.
 

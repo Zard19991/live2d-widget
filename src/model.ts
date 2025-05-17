@@ -3,22 +3,67 @@
  * @module model
  */
 
-import showMessage from './message.js';
-import randomSelection from './utils.js';
+import { showMessage } from './message.js';
+import { randomSelection } from './utils.js';
+import Model from './live2d/index.js';
+import logger, { LogLevel } from './logger.js';
 
 interface ModelList {
   messages: string[];
   models: string | string[];
 }
 
+interface Config {
+  /**
+   * 看板娘配置文件的路径。
+   * @type {string}
+   */
+  waifuPath: string;
+  /**
+   * API 的路径，如果需要使用 API 加载模型。
+   * @type {string | undefined}
+   */
+  apiPath?: string;
+  /**
+   * CDN 的路径，如果需要使用 CDN 加载模型。
+   * @type {string | undefined}
+   */
+  cdnPath?: string;
+  /**
+   * 默认模型的 id。
+   * @type {string | undefined}
+   */
+  modelId?: number;
+  /**
+   * 需要显示的工具列表。
+   * @type {string[] | undefined}
+   */
+  tools?: string[];
+  /**
+   * 支持拖动看板娘。
+   * @type {boolean | undefined}
+   */
+  drag?: boolean;
+  /**
+   * 日志的等级。
+   * @type {LogLevel | undefined}
+   */
+  logLevel?: LogLevel;
+}
+
 /**
  * 看板娘模型类，负责加载和管理模型。
  */
-class Model {
-  private readonly useCDN: boolean;
+class ModelManager {
+  public readonly useCDN: boolean;
   private readonly apiPath: string;
   private readonly cdnPath: string;
+  private _modelId: number;
+  private _modelTexturesId: number;
   private modelList: ModelList | null = null;
+  private readonly model: Model;
+  private modelInitialized: boolean;
+  private modelJSONCache: Record<string, any>;
 
   /**
    * 创建一个 Model 实例。
@@ -26,7 +71,7 @@ class Model {
    * @param {string} [config.apiPath] - API 路径。
    * @param {string} [config.cdnPath] - CDN 路径。
    */
-  constructor(config: { apiPath?: string; cdnPath?: string }) {
+  constructor(config: Config) {
     let { apiPath, cdnPath } = config;
     let useCDN = false;
     if (typeof cdnPath === 'string') {
@@ -37,17 +82,78 @@ class Model {
     } else {
       throw 'Invalid initWidget argument!';
     }
+    let modelId: number = parseInt(localStorage.getItem('modelId') as string, 10);
+    let modelTexturesId: number = parseInt(
+      localStorage.getItem('modelTexturesId') as string, 10
+    );
+    if (isNaN(modelId) || isNaN(modelTexturesId)) {
+      modelTexturesId = 0;
+    }
+    if (isNaN(modelId)) {
+      modelId = config.modelId ?? (useCDN ? 0 : 1);
+    }
     this.useCDN = useCDN;
     this.apiPath = apiPath || '';
     this.cdnPath = cdnPath || '';
+    this._modelId = modelId;
+    this._modelTexturesId = modelTexturesId;
+    this.model = new Model();
+    this.modelInitialized = false;
+    this.modelJSONCache = {};
+  }
+
+  public set modelId(modelId: number) {
+    this._modelId = modelId;
+    localStorage.setItem('modelId', modelId.toString());
+  }
+
+  public get modelId() {
+    return this._modelId;
+  }
+
+  public set modelTexturesId(modelTexturesId: number) {
+    this._modelTexturesId = modelTexturesId;
+    localStorage.setItem('modelTexturesId', modelTexturesId.toString());
+  }
+
+  public get modelTexturesId() {
+    return this._modelTexturesId;
+  }
+
+  async fetchWithCache(url: string) {
+    let result;
+    if (url in this.modelJSONCache) {
+      result = this.modelJSONCache[url];
+    } else {
+      const response = await fetch(url);
+      result = await response.json();
+      this.modelJSONCache[url] = result;
+    }
+    return result;
+  }
+
+  async loadLive2d(modelSettingPath: string, modelSetting: object) {
+    if (!this.modelInitialized) {
+      this.modelInitialized = true;
+      await this.model.init('live2d', modelSettingPath, modelSetting);
+    } else {
+      await this.model.changeModelWithJSON(modelSettingPath, modelSetting);
+    }
+    logger.info(`Model ${modelSettingPath} loaded`);
   }
 
   /**
    * 加载模型列表。
    */
-  async loadModelList() {
+  async loadModelList(): Promise<ModelList> {
     const response = await fetch(`${this.cdnPath}model_list.json`);
-    this.modelList = await response.json();
+    const modelList = await response.json();
+    return modelList;
+  }
+
+  async loadTextureCache(modelName: string): Promise<any[]> {
+    const textureCache = await this.fetchWithCache(`${this.cdnPath}model/${modelName}/textures.cache`);
+    return textureCache;
   }
 
   /**
@@ -56,70 +162,83 @@ class Model {
    * @param {number} modelTexturesId - 模型材质 ID。
    * @param {string} message - 加载消息。
    */
-  async loadModel(modelId: number, modelTexturesId: number, message: string) {
-    localStorage.setItem('modelId', modelId.toString());
-    localStorage.setItem('modelTexturesId', modelTexturesId.toString());
-    showMessage(message, 4000, 10);
-    if (this.useCDN && this.modelList) {
-      if (!this.modelList) await this.loadModelList();
-      const target = randomSelection(this.modelList.models[modelId]);
-      loadlive2d('live2d', `${this.cdnPath}model/${target}/index.json`);
+  async loadModel(message: string) {
+    const { modelId, modelTexturesId } = this;
+    if (this.useCDN) {
+      if (!this.modelList) {
+        this.modelList = await this.loadModelList();
+      }
+      const modelName = randomSelection(this.modelList.models[modelId]);
+      const modelSettingPath = `${this.cdnPath}model/${modelName}/index.json`;
+      const textureCache = await this.loadTextureCache(modelName);
+      const modelSetting = await this.fetchWithCache(modelSettingPath);
+      let textures = textureCache[modelTexturesId];
+      if (typeof textures === 'string') textures = [textures];
+      modelSetting.textures = textures;
+      await this.loadLive2d(modelSettingPath, modelSetting);
     } else {
-      loadlive2d(
-        'live2d',
-        `${this.apiPath}get/?id=${modelId}-${modelTexturesId}`,
-      );
-      console.log(`Live2D Model ${modelId}-${modelTexturesId} Loaded`);
+      const modelSettingPath = `${this.apiPath}get/?id=${modelId}-${modelTexturesId}`;
+      const modelSetting = await this.fetchWithCache(modelSettingPath);
+      await this.loadLive2d(modelSettingPath, modelSetting);
     }
+    showMessage(message, 4000, 10);
   }
 
   /**
    * 加载随机材质的模型。
    */
-  async loadRandModel() {
-    const modelId = Number(localStorage.getItem('modelId'));
-    const modelTexturesId = Number(localStorage.getItem('modelTexturesId'));
-    if (this.useCDN && modelId && this.modelList) {
+  async loadRandTexture() {
+    const { modelId, modelTexturesId } = this;
+    if (this.useCDN) {
       if (!this.modelList) {
-        await this.loadModelList();
+        this.modelList = await this.loadModelList();
       }
-      const target = randomSelection(this.modelList.models[modelId]);
-      loadlive2d('live2d', `${this.cdnPath}model/${target}/index.json`);
+      const modelName = randomSelection(this.modelList.models[modelId]);
+      const modelSettingPath = `${this.cdnPath}model/${modelName}/index.json`;
+      const textureCache = await this.loadTextureCache(modelName);
+      const modelSetting = await this.fetchWithCache(modelSettingPath);
+      this.modelTexturesId = Math.floor(Math.random() * textureCache.length);
+      let textures = textureCache[this.modelTexturesId];
+      if (typeof textures === 'string') textures = [textures];
+      modelSetting.textures = textures;
+      await this.loadLive2d(modelSettingPath, modelSetting);
       showMessage('我的新衣服好看嘛？', 4000, 10);
     } else {
-      // Optional "rand" (Random), "switch" (Switch by order)
-      fetch(`${this.apiPath}rand_textures/?id=${modelId}-${modelTexturesId}`)
-        .then((response) => response.json())
-        .then((result) => {
-          if (
-            result.textures.id === 1 &&
-            (modelTexturesId === 1 || modelTexturesId === 0)
-          ) {
-            showMessage('我还没有其他衣服呢！', 4000, 10);
-          } else if (modelId) {
-            this.loadModel(modelId, result.textures.id, '我的新衣服好看嘛？');
-          }
-        });
+      // Optional 'rand' (Random), 'switch' (Switch by order)
+      const response = await fetch(`${this.apiPath}rand_textures/?id=${modelId}-${modelTexturesId}`);
+      const result = await response.json();
+      if (
+        result.textures.id === 1 &&
+        (modelTexturesId === 1 || modelTexturesId === 0)
+      ) {
+        showMessage('我还没有其他衣服呢！', 4000, 10);
+      } else {
+        this.modelTexturesId = result.textures.id;
+        await this.loadModel('我的新衣服好看嘛？');
+      }
     }
   }
 
   /**
    * 加载其他模型。
    */
-  async loadOtherModel() {
-    let modelId = Number(localStorage.getItem('modelId'));
-    if (this.useCDN && modelId && this.modelList) {
-      if (!this.modelList) await this.loadModelList();
+  async loadNextModel() {
+    let { modelId } = this;
+    this.modelTexturesId = 0;
+    if (this.useCDN) {
+      if (!this.modelList) {
+        this.modelList = await this.loadModelList();
+      }
       const index = ++modelId >= this.modelList.models.length ? 0 : modelId;
-      void this.loadModel(index, 0, this.modelList.messages[index]);
+      this.modelId = index;
+      await this.loadModel(this.modelList.messages[index]);
     } else {
-      fetch(`${this.apiPath}switch/?id=${modelId}`)
-        .then((response) => response.json())
-        .then((result) => {
-          this.loadModel(result.model.id, 0, result.model.message);
-        });
+      const response = await fetch(`${this.apiPath}switch/?id=${modelId}`);
+      const result = await response.json();
+      this.modelId = result.model.id;
+      await this.loadModel(result.model.message);
     }
   }
 }
 
-export default Model;
+export { ModelManager, Config };

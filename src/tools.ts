@@ -3,30 +3,29 @@
  * @module tools
  */
 
-import fa_comment from '@fortawesome/fontawesome-free/svgs/solid/comment.svg';
-import fa_paper_plane from '@fortawesome/fontawesome-free/svgs/solid/paper-plane.svg';
-import fa_user_circle from '@fortawesome/fontawesome-free/svgs/solid/circle-user.svg';
-import fa_street_view from '@fortawesome/fontawesome-free/svgs/solid/street-view.svg';
-import fa_camera_retro from '@fortawesome/fontawesome-free/svgs/solid/camera-retro.svg';
-import fa_info_circle from '@fortawesome/fontawesome-free/svgs/solid/circle-info.svg';
-import fa_xmark from '@fortawesome/fontawesome-free/svgs/solid/xmark.svg';
-
-import showMessage from './message.js';
+import {
+  fa_comment,
+  fa_paper_plane,
+  fa_user_circle,
+  fa_street_view,
+  fa_camera_retro,
+  fa_info_circle,
+  fa_xmark
+} from './icons.js';
+import { showMessage } from './message.js';
 
 /**
  * 显示一句一言。
  */
-function showHitokoto() {
+async function showHitokoto() {
   // 增加 hitokoto.cn 的 API
-  fetch('https://v1.hitokoto.cn')
-    .then((response) => response.json())
-    .then((result) => {
-      const text = `这句一言来自 <span>「${result.from}」</span>，是 <span>${result.creator}</span> 在 hitokoto.cn 投稿的。`;
-      showMessage(result.hitokoto, 6000, 9);
-      setTimeout(() => {
-        showMessage(text, 4000, 9);
-      }, 6000);
-    });
+  const response = await fetch('https://v1.hitokoto.cn');
+  const result = await response.json();
+  const text = `这句一言来自 <span>「${result.from}」</span>，是 <span>${result.creator}</span> 在 hitokoto.cn 投稿的。`;
+  showMessage(result.hitokoto, 6000, 9);
+  setTimeout(() => {
+    showMessage(text, 4000, 9);
+  }, 6000);
 }
 
 /**
@@ -43,7 +42,7 @@ const tools = {
     callback: () => {
       if (window.Asteroids) {
         if (!window.ASTEROIDSPLAYERS) window.ASTEROIDSPLAYERS = [];
-        window.ASTEROIDSPLAYERS.push(new Asteroids());
+        window.ASTEROIDSPLAYERS.push(new window.Asteroids());
       } else {
         const script = document.createElement('script');
         script.src =
@@ -64,8 +63,18 @@ const tools = {
     icon: fa_camera_retro,
     callback: () => {
       showMessage('照好了嘛，是不是很可爱呢？', 6000, 9);
-      Live2D.captureName = 'photo.png';
-      Live2D.captureFrame = true;
+      const canvas = document.getElementById('live2d') as HTMLCanvasElement;
+      if (!canvas) return;
+      const imageUrl = canvas.toDataURL();
+
+      const link = document.createElement('a');
+      link.style.display = 'none';
+      link.href = imageUrl;
+      link.download = 'live2d-photo.png';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     },
   },
   info: {

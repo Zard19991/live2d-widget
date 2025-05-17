@@ -34,10 +34,13 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-import showMessage from './message.js';
-import randomSelection from './utils.js';
-var Model = (function () {
-    function Model(config) {
+import { showMessage } from './message.js';
+import { randomSelection } from './utils.js';
+import Model from './live2d/index.js';
+import logger from './logger.js';
+var ModelManager = (function () {
+    function ModelManager(config) {
+        var _a;
         this.modelList = null;
         var apiPath = config.apiPath, cdnPath = config.cdnPath;
         var useCDN = false;
@@ -53,123 +56,257 @@ var Model = (function () {
         else {
             throw 'Invalid initWidget argument!';
         }
+        var modelId = parseInt(localStorage.getItem('modelId'), 10);
+        var modelTexturesId = parseInt(localStorage.getItem('modelTexturesId'), 10);
+        if (isNaN(modelId) || isNaN(modelTexturesId)) {
+            modelTexturesId = 0;
+        }
+        if (isNaN(modelId)) {
+            modelId = (_a = config.modelId) !== null && _a !== void 0 ? _a : (useCDN ? 0 : 1);
+        }
         this.useCDN = useCDN;
         this.apiPath = apiPath || '';
         this.cdnPath = cdnPath || '';
+        this._modelId = modelId;
+        this._modelTexturesId = modelTexturesId;
+        this.model = new Model();
+        this.modelInitialized = false;
+        this.modelJSONCache = {};
     }
-    Model.prototype.loadModelList = function () {
+    Object.defineProperty(ModelManager.prototype, "modelId", {
+        get: function () {
+            return this._modelId;
+        },
+        set: function (modelId) {
+            this._modelId = modelId;
+            localStorage.setItem('modelId', modelId.toString());
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(ModelManager.prototype, "modelTexturesId", {
+        get: function () {
+            return this._modelTexturesId;
+        },
+        set: function (modelTexturesId) {
+            this._modelTexturesId = modelTexturesId;
+            localStorage.setItem('modelTexturesId', modelTexturesId.toString());
+        },
+        enumerable: false,
+        configurable: true
+    });
+    ModelManager.prototype.fetchWithCache = function (url) {
         return __awaiter(this, void 0, void 0, function () {
-            var response, _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0: return [4, fetch("".concat(this.cdnPath, "model_list.json"))];
-                    case 1:
-                        response = _b.sent();
-                        _a = this;
-                        return [4, response.json()];
+            var result, response;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(url in this.modelJSONCache)) return [3, 1];
+                        result = this.modelJSONCache[url];
+                        return [3, 4];
+                    case 1: return [4, fetch(url)];
                     case 2:
-                        _a.modelList = _b.sent();
+                        response = _a.sent();
+                        return [4, response.json()];
+                    case 3:
+                        result = _a.sent();
+                        this.modelJSONCache[url] = result;
+                        _a.label = 4;
+                    case 4: return [2, result];
+                }
+            });
+        });
+    };
+    ModelManager.prototype.loadLive2d = function (modelSettingPath, modelSetting) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!!this.modelInitialized) return [3, 2];
+                        this.modelInitialized = true;
+                        return [4, this.model.init('live2d', modelSettingPath, modelSetting)];
+                    case 1:
+                        _a.sent();
+                        return [3, 4];
+                    case 2: return [4, this.model.changeModelWithJSON(modelSettingPath, modelSetting)];
+                    case 3:
+                        _a.sent();
+                        _a.label = 4;
+                    case 4:
+                        logger.info("Model ".concat(modelSettingPath, " loaded"));
                         return [2];
                 }
             });
         });
     };
-    Model.prototype.loadModel = function (modelId, modelTexturesId, message) {
+    ModelManager.prototype.loadModelList = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var target;
+            var response, modelList;
             return __generator(this, function (_a) {
                 switch (_a.label) {
+                    case 0: return [4, fetch("".concat(this.cdnPath, "model_list.json"))];
+                    case 1:
+                        response = _a.sent();
+                        return [4, response.json()];
+                    case 2:
+                        modelList = _a.sent();
+                        return [2, modelList];
+                }
+            });
+        });
+    };
+    ModelManager.prototype.loadTextureCache = function (modelName) {
+        return __awaiter(this, void 0, void 0, function () {
+            var textureCache;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4, this.fetchWithCache("".concat(this.cdnPath, "model/").concat(modelName, "/textures.cache"))];
+                    case 1:
+                        textureCache = _a.sent();
+                        return [2, textureCache];
+                }
+            });
+        });
+    };
+    ModelManager.prototype.loadModel = function (message) {
+        return __awaiter(this, void 0, void 0, function () {
+            var _a, modelId, modelTexturesId, _b, modelName, modelSettingPath, textureCache, modelSetting, textures, modelSettingPath, modelSetting;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
-                        localStorage.setItem('modelId', modelId.toString());
-                        localStorage.setItem('modelTexturesId', modelTexturesId.toString());
+                        _a = this, modelId = _a.modelId, modelTexturesId = _a.modelTexturesId;
+                        if (!this.useCDN) return [3, 6];
+                        if (!!this.modelList) return [3, 2];
+                        _b = this;
+                        return [4, this.loadModelList()];
+                    case 1:
+                        _b.modelList = _c.sent();
+                        _c.label = 2;
+                    case 2:
+                        modelName = randomSelection(this.modelList.models[modelId]);
+                        modelSettingPath = "".concat(this.cdnPath, "model/").concat(modelName, "/index.json");
+                        return [4, this.loadTextureCache(modelName)];
+                    case 3:
+                        textureCache = _c.sent();
+                        return [4, this.fetchWithCache(modelSettingPath)];
+                    case 4:
+                        modelSetting = _c.sent();
+                        textures = textureCache[modelTexturesId];
+                        if (typeof textures === 'string')
+                            textures = [textures];
+                        modelSetting.textures = textures;
+                        return [4, this.loadLive2d(modelSettingPath, modelSetting)];
+                    case 5:
+                        _c.sent();
+                        return [3, 9];
+                    case 6:
+                        modelSettingPath = "".concat(this.apiPath, "get/?id=").concat(modelId, "-").concat(modelTexturesId);
+                        return [4, this.fetchWithCache(modelSettingPath)];
+                    case 7:
+                        modelSetting = _c.sent();
+                        return [4, this.loadLive2d(modelSettingPath, modelSetting)];
+                    case 8:
+                        _c.sent();
+                        _c.label = 9;
+                    case 9:
                         showMessage(message, 4000, 10);
-                        if (!(this.useCDN && this.modelList)) return [3, 3];
-                        if (!!this.modelList) return [3, 2];
-                        return [4, this.loadModelList()];
-                    case 1:
-                        _a.sent();
-                        _a.label = 2;
-                    case 2:
-                        target = randomSelection(this.modelList.models[modelId]);
-                        loadlive2d('live2d', "".concat(this.cdnPath, "model/").concat(target, "/index.json"));
-                        return [3, 4];
-                    case 3:
-                        loadlive2d('live2d', "".concat(this.apiPath, "get/?id=").concat(modelId, "-").concat(modelTexturesId));
-                        console.log("Live2D Model ".concat(modelId, "-").concat(modelTexturesId, " Loaded"));
-                        _a.label = 4;
-                    case 4: return [2];
+                        return [2];
                 }
             });
         });
     };
-    Model.prototype.loadRandModel = function () {
+    ModelManager.prototype.loadRandTexture = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var modelId, modelTexturesId, target;
-            var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var _a, modelId, modelTexturesId, _b, modelName, modelSettingPath, textureCache, modelSetting, textures, response, result;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
-                        modelId = Number(localStorage.getItem('modelId'));
-                        modelTexturesId = Number(localStorage.getItem('modelTexturesId'));
-                        if (!(this.useCDN && modelId && this.modelList)) return [3, 3];
+                        _a = this, modelId = _a.modelId, modelTexturesId = _a.modelTexturesId;
+                        if (!this.useCDN) return [3, 6];
                         if (!!this.modelList) return [3, 2];
+                        _b = this;
                         return [4, this.loadModelList()];
                     case 1:
-                        _a.sent();
-                        _a.label = 2;
+                        _b.modelList = _c.sent();
+                        _c.label = 2;
                     case 2:
-                        target = randomSelection(this.modelList.models[modelId]);
-                        loadlive2d('live2d', "".concat(this.cdnPath, "model/").concat(target, "/index.json"));
+                        modelName = randomSelection(this.modelList.models[modelId]);
+                        modelSettingPath = "".concat(this.cdnPath, "model/").concat(modelName, "/index.json");
+                        return [4, this.loadTextureCache(modelName)];
+                    case 3:
+                        textureCache = _c.sent();
+                        return [4, this.fetchWithCache(modelSettingPath)];
+                    case 4:
+                        modelSetting = _c.sent();
+                        this.modelTexturesId = Math.floor(Math.random() * textureCache.length);
+                        textures = textureCache[this.modelTexturesId];
+                        if (typeof textures === 'string')
+                            textures = [textures];
+                        modelSetting.textures = textures;
+                        return [4, this.loadLive2d(modelSettingPath, modelSetting)];
+                    case 5:
+                        _c.sent();
                         showMessage('我的新衣服好看嘛？', 4000, 10);
-                        return [3, 4];
-                    case 3:
-                        fetch("".concat(this.apiPath, "rand_textures/?id=").concat(modelId, "-").concat(modelTexturesId))
-                            .then(function (response) { return response.json(); })
-                            .then(function (result) {
-                            if (result.textures.id === 1 &&
-                                (modelTexturesId === 1 || modelTexturesId === 0)) {
-                                showMessage('我还没有其他衣服呢！', 4000, 10);
-                            }
-                            else if (modelId) {
-                                _this.loadModel(modelId, result.textures.id, '我的新衣服好看嘛？');
-                            }
-                        });
-                        _a.label = 4;
-                    case 4: return [2];
+                        return [3, 11];
+                    case 6: return [4, fetch("".concat(this.apiPath, "rand_textures/?id=").concat(modelId, "-").concat(modelTexturesId))];
+                    case 7:
+                        response = _c.sent();
+                        return [4, response.json()];
+                    case 8:
+                        result = _c.sent();
+                        if (!(result.textures.id === 1 &&
+                            (modelTexturesId === 1 || modelTexturesId === 0))) return [3, 9];
+                        showMessage('我还没有其他衣服呢！', 4000, 10);
+                        return [3, 11];
+                    case 9:
+                        this.modelTexturesId = result.textures.id;
+                        return [4, this.loadModel('我的新衣服好看嘛？')];
+                    case 10:
+                        _c.sent();
+                        _c.label = 11;
+                    case 11: return [2];
                 }
             });
         });
     };
-    Model.prototype.loadOtherModel = function () {
+    ModelManager.prototype.loadNextModel = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var modelId, index;
-            var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
+            var modelId, _a, index, response, result;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
-                        modelId = Number(localStorage.getItem('modelId'));
-                        if (!(this.useCDN && modelId && this.modelList)) return [3, 3];
+                        modelId = this.modelId;
+                        this.modelTexturesId = 0;
+                        if (!this.useCDN) return [3, 4];
                         if (!!this.modelList) return [3, 2];
+                        _a = this;
                         return [4, this.loadModelList()];
                     case 1:
-                        _a.sent();
-                        _a.label = 2;
+                        _a.modelList = _b.sent();
+                        _b.label = 2;
                     case 2:
                         index = ++modelId >= this.modelList.models.length ? 0 : modelId;
-                        void this.loadModel(index, 0, this.modelList.messages[index]);
-                        return [3, 4];
+                        this.modelId = index;
+                        return [4, this.loadModel(this.modelList.messages[index])];
                     case 3:
-                        fetch("".concat(this.apiPath, "switch/?id=").concat(modelId))
-                            .then(function (response) { return response.json(); })
-                            .then(function (result) {
-                            _this.loadModel(result.model.id, 0, result.model.message);
-                        });
-                        _a.label = 4;
-                    case 4: return [2];
+                        _b.sent();
+                        return [3, 8];
+                    case 4: return [4, fetch("".concat(this.apiPath, "switch/?id=").concat(modelId))];
+                    case 5:
+                        response = _b.sent();
+                        return [4, response.json()];
+                    case 6:
+                        result = _b.sent();
+                        this.modelId = result.model.id;
+                        return [4, this.loadModel(result.model.message)];
+                    case 7:
+                        _b.sent();
+                        _b.label = 8;
+                    case 8: return [2];
                 }
             });
         });
     };
-    return Model;
+    return ModelManager;
 }());
-export default Model;
+export { ModelManager };
