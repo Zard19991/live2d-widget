@@ -1,23 +1,66 @@
 /**
- * @file 定义 Live2D API 的类型。
+ * @file Define types for Live2D API.
  * @module types/live2dApi
  */
 declare namespace Live2D {
   /**
-   * 捕获的图片名称。
-   * @type {string}
+   * Initialize the Live2D runtime environment.
    */
-  export let captureName: string;
+  export function init(): void;
   /**
-   * 是否捕获帧。
-   * @type {boolean}
+   * Set the WebGL context
+   * @param gl WebGL rendering context
    */
-  export let captureFrame: boolean;
+  export function setGL(gl: WebGLRenderingContext): void;
 }
 
 /**
- * 加载 Live2D 模型。
- * @param {string} id - Canvas 元素的 ID。
- * @param {string} path - 模型配置文件的路径。
+ * Static class related to Live2D models.
  */
-declare function loadlive2d(id: string, path: string): void;
+declare class Live2DModelWebGL {
+  /**
+   * Load a Live2D model from a binary buffer
+   * @param buf ArrayBuffer data of the model file
+   */
+  static loadModel(buf: ArrayBuffer): Live2DModelWebGL;
+
+  /**
+   * Bind a texture to the model
+   * @param index Texture index
+   * @param texture WebGL texture object
+   */
+  setTexture(index: number, texture: WebGLTexture): void;
+
+  /**
+   * Return the canvas width of the model
+   */
+  getCanvasWidth(): number;
+
+  /**
+   * Set the transformation matrix of the model
+   * @param matrix 4x4 matrix array
+   */
+  setMatrix(matrix: number[]): void;
+
+  /**
+   * Set parameter values (e.g., animation parameters)
+   * @param paramName Parameter name
+   * @param value Parameter value
+   */
+  setParamFloat(paramName: string, value: number): void;
+
+  /**
+   * Refresh the internal data of the model
+   */
+  update(): void;
+
+  /**
+   * Draw the current frame
+   */
+  draw(): void;
+
+  /**
+   * Whether the current mode is premultiplied alpha
+   */
+  isPremultipliedAlpha?(): boolean;
+}

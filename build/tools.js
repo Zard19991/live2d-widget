@@ -1,37 +1,40 @@
-import fa_comment from '@fortawesome/fontawesome-free/svgs/solid/comment.svg';
-import fa_paper_plane from '@fortawesome/fontawesome-free/svgs/solid/paper-plane.svg';
-import fa_user_circle from '@fortawesome/fontawesome-free/svgs/solid/circle-user.svg';
-import fa_street_view from '@fortawesome/fontawesome-free/svgs/solid/street-view.svg';
-import fa_camera_retro from '@fortawesome/fontawesome-free/svgs/solid/camera-retro.svg';
-import fa_info_circle from '@fortawesome/fontawesome-free/svgs/solid/circle-info.svg';
-import fa_xmark from '@fortawesome/fontawesome-free/svgs/solid/xmark.svg';
-import showMessage from './message.js';
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+import { fa_comment, fa_paper_plane, fa_user_circle, fa_street_view, fa_camera_retro, fa_info_circle, fa_xmark } from './icons.js';
+import { showMessage } from './message.js';
 function showHitokoto() {
-    fetch('https://v1.hitokoto.cn')
-        .then(function (response) { return response.json(); })
-        .then(function (result) {
-        var text = "\u8FD9\u53E5\u4E00\u8A00\u6765\u81EA <span>\u300C".concat(result.from, "\u300D</span>\uFF0C\u662F <span>").concat(result.creator, "</span> \u5728 hitokoto.cn \u6295\u7A3F\u7684\u3002");
+    return __awaiter(this, void 0, void 0, function* () {
+        const response = yield fetch('https://v1.hitokoto.cn');
+        const result = yield response.json();
+        const text = `这句一言来自 <span>「${result.from}」</span>，是 <span>${result.creator}</span> 在 hitokoto.cn 投稿的。`;
         showMessage(result.hitokoto, 6000, 9);
-        setTimeout(function () {
+        setTimeout(() => {
             showMessage(text, 4000, 9);
         }, 6000);
     });
 }
-var tools = {
+const tools = {
     hitokoto: {
         icon: fa_comment,
         callback: showHitokoto,
     },
     asteroids: {
         icon: fa_paper_plane,
-        callback: function () {
+        callback: () => {
             if (window.Asteroids) {
                 if (!window.ASTEROIDSPLAYERS)
                     window.ASTEROIDSPLAYERS = [];
-                window.ASTEROIDSPLAYERS.push(new Asteroids());
+                window.ASTEROIDSPLAYERS.push(new window.Asteroids());
             }
             else {
-                var script = document.createElement('script');
+                const script = document.createElement('script');
                 script.src =
                     'https://fastly.jsdelivr.net/gh/stevenjoezhang/asteroids/asteroids.js';
                 document.head.appendChild(script);
@@ -40,38 +43,47 @@ var tools = {
     },
     'switch-model': {
         icon: fa_user_circle,
-        callback: function () { },
+        callback: () => { },
     },
     'switch-texture': {
         icon: fa_street_view,
-        callback: function () { },
+        callback: () => { },
     },
     photo: {
         icon: fa_camera_retro,
-        callback: function () {
+        callback: () => {
             showMessage('照好了嘛，是不是很可爱呢？', 6000, 9);
-            Live2D.captureName = 'photo.png';
-            Live2D.captureFrame = true;
+            const canvas = document.getElementById('live2d');
+            if (!canvas)
+                return;
+            const imageUrl = canvas.toDataURL();
+            const link = document.createElement('a');
+            link.style.display = 'none';
+            link.href = imageUrl;
+            link.download = 'live2d-photo.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         },
     },
     info: {
         icon: fa_info_circle,
-        callback: function () {
+        callback: () => {
             open('https://github.com/stevenjoezhang/live2d-widget');
         },
     },
     quit: {
         icon: fa_xmark,
-        callback: function () {
+        callback: () => {
             localStorage.setItem('waifu-display', Date.now().toString());
             showMessage('愿你有一天能与重要的人重逢。', 2000, 11);
-            var waifu = document.getElementById('waifu');
+            const waifu = document.getElementById('waifu');
             if (!waifu)
                 return;
             waifu.style.bottom = '-500px';
-            setTimeout(function () {
+            setTimeout(() => {
                 waifu.style.display = 'none';
-                var waifuToggle = document.getElementById('waifu-toggle');
+                const waifuToggle = document.getElementById('waifu-toggle');
                 if (!waifuToggle)
                     return;
                 waifuToggle.classList.add('waifu-toggle-active');
