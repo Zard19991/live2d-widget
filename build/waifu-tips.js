@@ -1,3 +1,2 @@
-import { initWidget, loadExternalResource } from './init-widget.js';
+import { initWidget } from './widget.js';
 window.initWidget = initWidget;
-window.loadExternalResource = loadExternalResource;
